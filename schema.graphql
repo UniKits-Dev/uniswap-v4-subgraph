@@ -1,0 +1,7 @@
+type Pool @entity {
+  # poolKey
+  id: ID!
+  poolKey: Bytes!
+  currency0: Bytes!
+  currency1: Bytes!
+}
