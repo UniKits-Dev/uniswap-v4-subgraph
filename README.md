@@ -62,3 +62,52 @@ query {
     }
 }
 ```
+
+### Working with Arbitrum
+
+Because the public Arbitrum net has a maximum code size of 24KB, we use a local Arbitrum network for demonstration.
+
+1. set up the local arbitrum network
+
+```bash
+git clone -b eth-global --recurse-submodules https://github.com/OffchainLabs/nitro-testnode.git && cd nitro-testnode
+# IMPORTANT
+# change all appearance of 127.0.0.1 to 0.0.0.0 in nitro-testnode/docker-compose.yaml
+# if you want to access the local arbitrum node in a docker container
+
+# first time run
+./test-node.bash --init
+# using previous blocks
+# ./test-node.bash
+```
+
+2. transfer ETH to test account
+
+```bash
+./test-node.bash script send-l2 --to address_0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 --ethamount 5
+```
+
+3. deploy uniswap-v4 and do operations
+
+```bash
+ARBITRUM_RPC_URL=http://localhost:8547
+ARBITRUM_PRIVATE_KEY=0xb6b15c8cb491557369f3c7d2c287b053eb229daa9c22138887752191c9520659
+# to deploy
+forge script script/Deploy-Pool-Manager.s.sol --broadcast --fork-url $ARBITRUM_RPC_URL --private-key $ARBITRUM_PRIVATE_KEY --code-size-limit 300000
+# to provide liquidity and swap
+# copy and fill the contract address into Swap.s.sol
+forge script script/Swap.s.sol  --broadcast --fork-url $ARBITRUM_RPC_URL --private-key $ARBITRUM_PRIVATE_KEY --code-size-limit 300000
+```
+
+4. connect subgraph to arbitrum
+
+```bash
+# change the address in subgraph.yaml to the deployed contract
+# then start graph node
+docker compose up
+npm run codegen
+npm run create-local
+npm run deploy-local
+```
+
+5. query on the frontend. Go to the link and start querying!
