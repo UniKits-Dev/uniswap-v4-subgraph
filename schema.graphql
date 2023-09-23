@@ -1,0 +1,28 @@
+type Pool @entity {
+  # poolKey
+  id: ID!
+  poolKey: Bytes!
+  currency0: Bytes!
+  currency1: Bytes!
+  fee: Int!
+  tickSpacing: Int!
+  hookAddress: Bytes
+}
+
+type Swap @entity {
+  # transaction hash + "-" + index in swaps Transaction array
+  id: ID!
+  poolKey: Bytes!
+  transaction: Bytes!
+  timestamp: BigInt! # need this to pull recent txns for specific token or pair
+  currency0: Bytes!
+  currency1: Bytes!
+
+  # populated from the Swap event
+  sender: Bytes!
+  from: Bytes! # the EOA that initiated the txn
+  amount0Delta: BigInt!
+  amount1Delta: BigInt!
+  # to: Bytes!
+  logIndex: BigInt
+}
