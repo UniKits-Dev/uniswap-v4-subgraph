@@ -6,7 +6,7 @@
   "scripts": {
     "build-contract": "solc contracts/Gravity.sol --abi -o abis --overwrite && solc contracts/Gravity.sol --bin -o bin --overwrite",
     "create": "graph create example --node https://api.thegraph.com/deploy/",
-    "create-local": "graph create example --node http://127.0.0.1:8020",
+    "create-local": "graph create uniswap-v4 --node http://127.0.0.1:8020",
     "codegen": "graph codegen",
     "build": "graph build",
     "deploy": "graph deploy uniswap-v4 --ipfs https://api.thegraph.com/ipfs/ --node https://api.thegraph.com/deploy/",

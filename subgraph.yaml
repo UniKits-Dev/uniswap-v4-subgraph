@@ -8,7 +8,7 @@ dataSources:
     name: PoolManager
     network: mainnet
     source:
-      address: '0x68B1D87F95878fE05B998F19b66F4baba5De1aed'
+      address: "0x5FbDB2315678afecb367f032d93F642f64180aa3"
       abi: PoolManager
     mapping:
       kind: ethereum/events
@@ -24,8 +24,8 @@ dataSources:
           handler: handleInitialize
         - event: ModifyPosition(indexed bytes32,indexed address,int24,int24,int256)
           handler: handleModifyPosition
-        # - event: Swap(indexed bytes32,indexed address,int128,int128,uint160,uint128,int24,uint24)
-        #   handler: handleSwap
+        - event: Swap(indexed bytes32,indexed address,int128,int128,uint160,uint128,int24,uint24)
+          handler: handleSwap
       file: ./src/mapping.ts
 # event Initialize(
 #         PoolId indexed id,
