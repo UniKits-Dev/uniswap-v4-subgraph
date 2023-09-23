@@ -1,3 +1,9 @@
+type PoolSnapshot @entity {
+  id: ID!
+  liquidity: BigInt!
+  sqrtPriceX96: BigInt!
+}
+
 type Pool @entity {
   # poolKey
   id: ID!
@@ -6,7 +12,7 @@ type Pool @entity {
   currency1: Bytes!
   fee: Int!
   tickSpacing: Int!
-  hookAddress: Bytes
+  hookAddress: Bytes!
 }
 
 type Swap @entity {
@@ -20,9 +26,26 @@ type Swap @entity {
 
   # populated from the Swap event
   sender: Bytes!
-  from: Bytes! # the EOA that initiated the txn
+  from: Bytes!
+  liquidity: BigInt!
+  sqrtPriceX96: BigInt!
   amount0Delta: BigInt!
   amount1Delta: BigInt!
-  # to: Bytes!
+  logIndex: BigInt
+}
+
+type Position @entity {
+  id: ID!
+  poolKey: Bytes!
+  transaction: Bytes!
+  timestamp: BigInt! # need this to pull recent txns for specific token or pair
+  currency0: Bytes!
+  currency1: Bytes!
+
+  # populated from the ModifyPosition event
+  sender: Bytes!
+  from: Bytes!
+  liquidity: BigInt!
+  sqrtPriceX96: BigInt!
   logIndex: BigInt
 }
