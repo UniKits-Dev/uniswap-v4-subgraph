@@ -25,14 +25,14 @@ npm run deploy-local
 
 Then should be able to see data at [http://localhost:8000/subgraphs/name/uniswap-v4](http://localhost:8000/subgraphs/name/uniswap-v4)
 
-3. deploy a uniswap-v4 contract
+4. deploy a uniswap-v4 contract
 
 ```bash
 cd ../v4-core-helper
 bash scriptDeploy.sh # and copy the contract address
 ```
 
-4. run uniswap-v4 operations
+5. run uniswap-v4 operations
 
 ```bash
 # copy the contract address to Swap.s.sol
@@ -40,7 +40,7 @@ cd ../v4-core-helper
 bash scriptSwap.sh
 ```
 
-5. verify effects in DB
+6. verify effects in DB
 
 First get the docker address:
 

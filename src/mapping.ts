@@ -3,27 +3,14 @@ import {
   ModifyPosition,
   Swap as SwapEvent,
 } from "../generated/PoolManager/PoolManager";
-import { Pool, Swap } from "../generated/schema";
+import { Pool, PoolSnapshot, Position, Swap } from "../generated/schema";
+import { Bytes } from "@graphprotocol/graph-ts";
+import { ONE_BI, ZERO_BI } from "./constants";
 
-// export function handleNewGravatar(event: NewGravatar): void {
-//   let gravatar = new Gravatar(event.params.id.toHex())
-//   gravatar.owner = event.params.owner
-//   gravatar.displayName = event.params.displayName
-//   gravatar.imageUrl = event.params.imageUrl
-//   gravatar.save()
-// }
-
-// export function handleUpdatedGravatar(event: UpdatedGravatar): void {
-//   let id = event.params.id.toHex()
-//   let gravatar = Gravatar.load(id)
-//   if (gravatar == null) {
-//     gravatar = new Gravatar(id)
-//   }
-//   gravatar.owner = event.params.owner
-//   gravatar.displayName = event.params.displayName
-//   gravatar.imageUrl = event.params.imageUrl
-//   gravatar.save()
-// }
+function getLatestSnapshot(poolKey: Bytes): PoolSnapshot | null {
+  let snapshot = PoolSnapshot.load(poolKey.toHexString());
+  return snapshot;
+}
 
 export function handleInitialize(event: Initialize): void {
   let pool = new Pool(event.params.id.toHexString());
@@ -34,9 +21,35 @@ export function handleInitialize(event: Initialize): void {
   pool.tickSpacing = event.params.tickSpacing;
   pool.hookAddress = event.params.hooks;
   pool.save();
+  let snapshot = new PoolSnapshot(pool.poolKey.toHexString());
+  snapshot.liquidity = ZERO_BI;
+  snapshot.sqrtPriceX96 = ONE_BI;
+  snapshot.save();
 }
 
-export function handleModifyPosition(event: ModifyPosition): void {}
+export function handleModifyPosition(event: ModifyPosition): void {
+  let position = new Position(event.transaction.hash.toHexString());
+  position.poolKey = event.params.id;
+  position.transaction = event.transaction.hash;
+  position.timestamp = event.block.timestamp;
+  position.sender = event.params.sender;
+  position.from = event.transaction.from;
+  position.logIndex = event.logIndex;
+  const pool = Pool.load(position.poolKey.toHexString());
+  if (pool !== null) {
+    position.currency0 = pool.currency0;
+    position.currency1 = pool.currency1;
+  }
+  let snapshot = getLatestSnapshot(position.poolKey);
+  if (snapshot === null) {
+    throw "something wrong! Snapshot not found when modifying positions.";
+  }
+  position.liquidity = event.params.liquidityDelta.plus(snapshot.liquidity);
+  position.sqrtPriceX96 = snapshot.sqrtPriceX96;
+  position.save();
+  snapshot.liquidity = position.liquidity;
+  snapshot.save();
+}
 
 export function handleSwap(event: SwapEvent): void {
   let swap = new Swap(event.transaction.hash.toHexString());
@@ -49,9 +62,18 @@ export function handleSwap(event: SwapEvent): void {
     swap.currency0 = pool.currency0;
     swap.currency1 = pool.currency1;
   }
+  swap.liquidity = event.params.liquidity;
+  swap.sqrtPriceX96 = event.params.sqrtPriceX96;
   swap.amount0Delta = event.params.amount0;
   swap.amount1Delta = event.params.amount1;
   swap.from = event.transaction.from;
   swap.logIndex = event.logIndex;
   swap.save();
+  let snapshot = getLatestSnapshot(swap.poolKey);
+  if (snapshot === null) {
+    throw "something wrong! Snapshot not found when swapping.";
+  }
+  snapshot.liquidity = swap.liquidity;
+  snapshot.sqrtPriceX96 = swap.sqrtPriceX96;
+  snapshot.save();
 }
