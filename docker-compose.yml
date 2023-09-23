@@ -18,7 +18,8 @@ services:
       postgres_db: graph-node
       ipfs: 'ipfs:5001'
       # Change next line if you want to connect to a different JSON-RPC endpoint
-      ethereum: 'mainnet:http://host.docker.internal:8545'
+      # use 8545 for anvil
+      ethereum: 'mainnet:http://host.docker.internal:8547'
       GRAPH_LOG: info
     extra_hosts:
       - "host.docker.internal:host-gateway"
