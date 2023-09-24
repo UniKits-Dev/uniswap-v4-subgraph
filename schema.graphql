@@ -13,20 +13,19 @@ type Pool @entity {
   fee: Int!
   tickSpacing: Int!
   hookAddress: Bytes!
+  txCnt: BigInt!
 }
 
 type Swap @entity {
   # transaction hash + "-" + index in swaps Transaction array
   id: ID!
   poolKey: Bytes!
-  transaction: Bytes!
-  timestamp: BigInt! # need this to pull recent txns for specific token or pair
   currency0: Bytes!
   currency1: Bytes!
+  transaction: Transaction!
 
   # populated from the Swap event
   sender: Bytes!
-  from: Bytes!
   liquidity: BigInt!
   sqrtPriceX96: BigInt!
   amount0Delta: BigInt!
@@ -37,15 +36,30 @@ type Swap @entity {
 type Position @entity {
   id: ID!
   poolKey: Bytes!
-  transaction: Bytes!
-  timestamp: BigInt! # need this to pull recent txns for specific token or pair
   currency0: Bytes!
   currency1: Bytes!
+  transaction: Transaction!
 
   # populated from the ModifyPosition event
   sender: Bytes!
-  from: Bytes!
   liquidity: BigInt!
   sqrtPriceX96: BigInt!
   logIndex: BigInt
+}
+
+type Transaction @entity {
+  # txn hash
+  id: ID!
+  # block txn was included in
+  blockNumber: BigInt!
+  # timestamp txn was confirmed
+  timestamp: BigInt!
+  # gas used during txn execution
+  gasLimit: BigInt!
+  gasPrice: BigInt!
+  from: Bytes!
+  to: Bytes
+  # derived values
+  position: [Position]! @derivedFrom(field: "transaction")
+  swap: [Swap]! @derivedFrom(field: "transaction")
 }

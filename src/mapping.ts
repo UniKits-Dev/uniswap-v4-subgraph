@@ -6,6 +6,7 @@ import {
 import { Pool, PoolSnapshot, Position, Swap } from "../generated/schema";
 import { Bytes } from "@graphprotocol/graph-ts";
 import { ONE_BI, ZERO_BI } from "./constants";
+import { loadTransaction } from "./helpers";
 
 function getLatestSnapshot(poolKey: Bytes): PoolSnapshot | null {
   let snapshot = PoolSnapshot.load(poolKey.toHexString());
@@ -20,6 +21,7 @@ export function handleInitialize(event: Initialize): void {
   pool.fee = event.params.fee;
   pool.tickSpacing = event.params.tickSpacing;
   pool.hookAddress = event.params.hooks;
+  pool.txCnt = ZERO_BI;
   pool.save();
   let snapshot = new PoolSnapshot(pool.poolKey.toHexString());
   snapshot.liquidity = ZERO_BI;
@@ -28,18 +30,24 @@ export function handleInitialize(event: Initialize): void {
 }
 
 export function handleModifyPosition(event: ModifyPosition): void {
-  let position = new Position(event.transaction.hash.toHexString());
-  position.poolKey = event.params.id;
-  position.transaction = event.transaction.hash;
-  position.timestamp = event.block.timestamp;
-  position.sender = event.params.sender;
-  position.from = event.transaction.from;
-  position.logIndex = event.logIndex;
-  const pool = Pool.load(position.poolKey.toHexString());
-  if (pool !== null) {
-    position.currency0 = pool.currency0;
-    position.currency1 = pool.currency1;
+  let trans = loadTransaction(event);
+  let pool = Pool.load(event.params.id.toHexString());
+  if (pool === null) {
+    throw `Pool ${event.params.id.toHexString()} is non-existent when modifying liquidity.`;
   }
+  let position = new Position(
+    trans.id.toString() + "#" + pool.txCnt.toString()
+  );
+  position.transaction = trans.id;
+  position.poolKey = event.params.id;
+  position.sender = event.params.sender;
+  position.logIndex = event.logIndex;
+
+  position.currency0 = pool.currency0;
+  position.currency1 = pool.currency1;
+  pool.txCnt = pool.txCnt.plus(ONE_BI);
+  pool.save();
+
   let snapshot = getLatestSnapshot(position.poolKey);
   if (snapshot === null) {
     throw "something wrong! Snapshot not found when modifying positions.";
@@ -52,21 +60,25 @@ export function handleModifyPosition(event: ModifyPosition): void {
 }
 
 export function handleSwap(event: SwapEvent): void {
-  let swap = new Swap(event.transaction.hash.toHexString());
-  swap.poolKey = event.params.id;
-  swap.transaction = event.transaction.hash;
-  swap.timestamp = event.block.timestamp;
-  swap.sender = event.params.sender;
-  const pool = Pool.load(swap.poolKey.toHexString());
-  if (pool !== null) {
-    swap.currency0 = pool.currency0;
-    swap.currency1 = pool.currency1;
+  let trans = loadTransaction(event);
+  let pool = Pool.load(event.params.id.toHexString());
+  if (pool === null) {
+    throw `Pool ${event.params.id.toHexString()} is non-existent when doing swap.`;
   }
+  let swap = new Swap(trans.id.toString() + "#" + pool.txCnt.toString());
+  swap.transaction = trans.id;
+  swap.poolKey = event.params.id;
+  swap.sender = event.params.sender;
+
+  swap.currency0 = pool.currency0;
+  swap.currency1 = pool.currency1;
+  pool.txCnt = pool.txCnt.plus(ONE_BI);
+  pool.save();
+
   swap.liquidity = event.params.liquidity;
   swap.sqrtPriceX96 = event.params.sqrtPriceX96;
   swap.amount0Delta = event.params.amount0;
   swap.amount1Delta = event.params.amount1;
-  swap.from = event.transaction.from;
   swap.logIndex = event.logIndex;
   swap.save();
   let snapshot = getLatestSnapshot(swap.poolKey);
