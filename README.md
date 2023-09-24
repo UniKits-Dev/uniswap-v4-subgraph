@@ -1,6 +1,19 @@
-# Example Subgraph
+# Subgraph for Uniswap-v4
 
-An example to help you get started with The Graph. For more information see the docs on https://thegraph.com/docs/.
+A subgraph for the Uniswap-v4 contract. Include new changes in Uniswap-v4 while maintaining old data in Uniswap-v3. Empowering both logging and analysis. Tested to work for local testnets (anvil) and Arbitrum (local).
+
+## Entities
+
+Currently there are 6 entities for global statistics of Uniswap contract, logging of each transaction, and candlestick form data for analysis.
+
+| Entity       | Data                                                        |
+| ------------ | ----------------------------------------------------------- |
+| ContractStat | global Uniswap-v4 Statistics                                |
+| Pool         | statistic per pool                                          |
+| Swap         | details for each swap transaction                           |
+| Position     | details for each liquidity providing/extracting transaction |
+| Transaction  | logging for each transaction                                |
+| PoolHourData | candlestick form data (hourly)                              |
 
 ## Running on Ubuntu
 
@@ -52,14 +65,40 @@ Connect to DB using the address and see the effects.
 
 Or query GraphiQL using the UI:
 
-```
+```graphql
 query {
-    pools {
+  contractStats {
+    id
+    poolCnt
+    txCnt
+    modifyPositionCnt
+    swapCnt
+
+    totalLiquidity
+    owner
+  }
+}
+```
+
+```graphql
+query {
+  poolHourDatas {
+    id
+    periodStartUnix
+    pool {
       id
-      poolKey
-      currency0
-      currency1
     }
+    liquidity
+    sqrtPrice
+    token0Price
+    token1Price
+    tick
+    txCount
+    open
+    high
+    low
+    close
+  }
 }
 ```
 
