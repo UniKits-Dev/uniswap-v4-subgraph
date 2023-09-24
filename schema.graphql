@@ -1,7 +1,17 @@
-type PoolSnapshot @entity {
+type ContractStat @entity {
+  # contract address
   id: ID!
-  liquidity: BigInt!
-  sqrtPriceX96: BigInt!
+  # amount of pools created
+  poolCnt: BigInt!
+  # amoutn of transactions all time
+  txCnt: BigInt!
+  modifyPositionCnt: BigInt!
+  swapCnt: BigInt!
+  # total liquidity
+  totalLiquidity: BigInt!
+
+  # current owner of the factory
+  owner: ID!
 }
 
 type Pool @entity {
@@ -14,6 +24,8 @@ type Pool @entity {
   tickSpacing: Int!
   hookAddress: Bytes!
   txCnt: BigInt!
+  liquidity: BigInt!
+  sqrtPriceX96: BigInt!
 }
 
 type Swap @entity {

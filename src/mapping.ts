@@ -3,17 +3,17 @@ import {
   ModifyPosition,
   Swap as SwapEvent,
 } from "../generated/PoolManager/PoolManager";
-import { Pool, PoolSnapshot, Position, Swap } from "../generated/schema";
+import { ContractStat, Pool, Position, Swap } from "../generated/schema";
 import { Bytes } from "@graphprotocol/graph-ts";
-import { ONE_BI, ZERO_BI } from "./constants";
-import { loadTransaction } from "./helpers";
-
-function getLatestSnapshot(poolKey: Bytes): PoolSnapshot | null {
-  let snapshot = PoolSnapshot.load(poolKey.toHexString());
-  return snapshot;
-}
+import { ADDRESS_ZERO, CONTRACT_ADDRESS, ONE_BI, ZERO_BI } from "./constants";
+import {
+  handlePoolCreated,
+  loadContractStat,
+  loadTransaction,
+} from "./helpers";
 
 export function handleInitialize(event: Initialize): void {
+  handlePoolCreated();
   let pool = new Pool(event.params.id.toHexString());
   pool.poolKey = event.params.id;
   pool.currency0 = event.params.currency0;
@@ -22,14 +22,16 @@ export function handleInitialize(event: Initialize): void {
   pool.tickSpacing = event.params.tickSpacing;
   pool.hookAddress = event.params.hooks;
   pool.txCnt = ZERO_BI;
+  pool.liquidity = ZERO_BI;
+  pool.sqrtPriceX96 = ZERO_BI;
   pool.save();
-  let snapshot = new PoolSnapshot(pool.poolKey.toHexString());
-  snapshot.liquidity = ZERO_BI;
-  snapshot.sqrtPriceX96 = ONE_BI;
-  snapshot.save();
 }
 
 export function handleModifyPosition(event: ModifyPosition): void {
+  let stat = loadContractStat();
+  stat.txCnt = stat.txCnt.plus(ONE_BI);
+  stat.modifyPositionCnt = stat.modifyPositionCnt.plus(ONE_BI);
+  stat.save();
   let trans = loadTransaction(event);
   let pool = Pool.load(event.params.id.toHexString());
   if (pool === null) {
@@ -46,20 +48,19 @@ export function handleModifyPosition(event: ModifyPosition): void {
   position.currency0 = pool.currency0;
   position.currency1 = pool.currency1;
   pool.txCnt = pool.txCnt.plus(ONE_BI);
-  pool.save();
 
-  let snapshot = getLatestSnapshot(position.poolKey);
-  if (snapshot === null) {
-    throw "something wrong! Snapshot not found when modifying positions.";
-  }
-  position.liquidity = event.params.liquidityDelta.plus(snapshot.liquidity);
-  position.sqrtPriceX96 = snapshot.sqrtPriceX96;
+  position.liquidity = event.params.liquidityDelta.plus(pool.liquidity);
+  position.sqrtPriceX96 = pool.sqrtPriceX96;
   position.save();
-  snapshot.liquidity = position.liquidity;
-  snapshot.save();
+  pool.liquidity = position.liquidity;
+  pool.save();
 }
 
 export function handleSwap(event: SwapEvent): void {
+  let stat = loadContractStat();
+  stat.txCnt = stat.txCnt.plus(ONE_BI);
+  stat.swapCnt = stat.swapCnt.plus(ONE_BI);
+  stat.save();
   let trans = loadTransaction(event);
   let pool = Pool.load(event.params.id.toHexString());
   if (pool === null) {
@@ -73,7 +74,6 @@ export function handleSwap(event: SwapEvent): void {
   swap.currency0 = pool.currency0;
   swap.currency1 = pool.currency1;
   pool.txCnt = pool.txCnt.plus(ONE_BI);
-  pool.save();
 
   swap.liquidity = event.params.liquidity;
   swap.sqrtPriceX96 = event.params.sqrtPriceX96;
@@ -81,11 +81,8 @@ export function handleSwap(event: SwapEvent): void {
   swap.amount1Delta = event.params.amount1;
   swap.logIndex = event.logIndex;
   swap.save();
-  let snapshot = getLatestSnapshot(swap.poolKey);
-  if (snapshot === null) {
-    throw "something wrong! Snapshot not found when swapping.";
-  }
-  snapshot.liquidity = swap.liquidity;
-  snapshot.sqrtPriceX96 = swap.sqrtPriceX96;
-  snapshot.save();
+
+  pool.liquidity = swap.liquidity;
+  pool.sqrtPriceX96 = swap.sqrtPriceX96;
+  pool.save();
 }
