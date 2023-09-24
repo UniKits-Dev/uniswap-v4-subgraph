@@ -25,10 +25,12 @@ type Pool @entity {
   hookAddress: Bytes!
   txCnt: BigInt!
   liquidity: BigInt!
-  sqrtPriceX96: BigInt!
+  sqrtPrice: BigInt!
   # derived from sqrtPriceX96
   token0Price: BigDecimal!
   token1Price: BigDecimal!
+  # current tick
+  tick: BigInt!
 }
 
 type Swap @entity {
@@ -45,6 +47,7 @@ type Swap @entity {
   sqrtPriceX96: BigInt!
   amount0Delta: BigInt!
   amount1Delta: BigInt!
+  tick: BigInt!
   logIndex: BigInt
   # derived from sqrtPriceX96
   token0Price: BigDecimal!
@@ -62,6 +65,7 @@ type Position @entity {
   sender: Bytes!
   liquidity: BigInt!
   sqrtPriceX96: BigInt!
+  tick: BigInt!
   logIndex: BigInt
   # derived from sqrtPriceX96
   token0Price: BigDecimal!
@@ -83,4 +87,34 @@ type Transaction @entity {
   # derived values
   position: [Position]! @derivedFrom(field: "transaction")
   swap: [Swap]! @derivedFrom(field: "transaction")
+}
+
+# hourly stats tracker for pool
+type PoolHourData @entity {
+  # format: <pool address>-<timestamp>
+  id: ID!
+  # unix timestamp for start of hour
+  periodStartUnix: Int!
+  # pointer to pool
+  pool: Pool!
+  # in range liquidity at end of period
+  liquidity: BigInt!
+  # current price tracker at end of period
+  sqrtPrice: BigInt!
+  # price of token0 - derived from sqrtPrice
+  token0Price: BigDecimal!
+  # price of token1 - derived from sqrtPrice
+  token1Price: BigDecimal!
+  # current tick at end of period
+  tick: BigInt
+  # numebr of transactions during period
+  txCount: BigInt!
+  # opening price of token0
+  open: BigDecimal!
+  # high price of token0
+  high: BigDecimal!
+  # low price of token0
+  low: BigDecimal!
+  # close price of token0
+  close: BigDecimal!
 }

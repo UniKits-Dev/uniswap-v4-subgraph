@@ -4,7 +4,7 @@ import {
   Swap as SwapEvent,
 } from "../generated/PoolManager/PoolManager";
 import { ContractStat, Pool, Position, Swap } from "../generated/schema";
-import { Bytes, BigDecimal } from "@graphprotocol/graph-ts";
+import { Bytes, BigDecimal, BigInt } from "@graphprotocol/graph-ts";
 import {
   ADDRESS_ZERO,
   CONTRACT_ADDRESS,
@@ -18,6 +18,7 @@ import {
   loadTransaction,
   sqrtPriceX96ToTokenPrices,
 } from "./helpers";
+import { updatePoolHourData } from "./updateIntervals";
 
 export function handleInitialize(event: Initialize): void {
   handlePoolCreated();
@@ -30,9 +31,10 @@ export function handleInitialize(event: Initialize): void {
   pool.hookAddress = event.params.hooks;
   pool.txCnt = ZERO_BI;
   pool.liquidity = ZERO_BI;
-  pool.sqrtPriceX96 = ZERO_BI;
+  pool.sqrtPrice = ZERO_BI;
   pool.token0Price = ZERO_BD;
   pool.token1Price = ZERO_BD;
+  pool.tick = ZERO_BI;
   pool.save();
 }
 
@@ -59,19 +61,22 @@ export function handleModifyPosition(event: ModifyPosition): void {
   pool.txCnt = pool.txCnt.plus(ONE_BI);
 
   position.liquidity = event.params.liquidityDelta.plus(pool.liquidity);
-  position.sqrtPriceX96 = pool.sqrtPriceX96;
+  position.sqrtPriceX96 = pool.sqrtPrice;
   let prices: BigDecimal[];
-  if (pool.sqrtPriceX96.gt(ZERO_BI)) {
-    prices = sqrtPriceX96ToTokenPrices(pool.sqrtPriceX96);
+  if (pool.sqrtPrice.gt(ZERO_BI)) {
+    prices = sqrtPriceX96ToTokenPrices(pool.sqrtPrice);
   } else {
     prices = [ZERO_BD, ZERO_BD];
   }
   position.token0Price = prices[0];
   position.token1Price = prices[1];
+  position.tick = pool.tick;
   position.save();
 
   pool.liquidity = position.liquidity;
   pool.save();
+
+  updatePoolHourData(event, position.poolKey.toHexString());
 }
 
 export function handleSwap(event: SwapEvent): void {
@@ -98,6 +103,7 @@ export function handleSwap(event: SwapEvent): void {
   swap.amount0Delta = event.params.amount0;
   swap.amount1Delta = event.params.amount1;
   swap.logIndex = event.logIndex;
+  swap.tick = BigInt.fromI32(event.params.tick);
 
   let prices = sqrtPriceX96ToTokenPrices(swap.sqrtPriceX96);
   swap.token0Price = prices[0];
@@ -105,8 +111,11 @@ export function handleSwap(event: SwapEvent): void {
   swap.save();
 
   pool.liquidity = swap.liquidity;
-  pool.sqrtPriceX96 = swap.sqrtPriceX96;
+  pool.sqrtPrice = swap.sqrtPriceX96;
   pool.token0Price = swap.token0Price;
   pool.token1Price = swap.token1Price;
+  pool.tick = swap.tick;
   pool.save();
+
+  updatePoolHourData(event, swap.poolKey.toHexString());
 }
