@@ -6,20 +6,57 @@ import {
   Address,
   ethereum,
 } from "@graphprotocol/graph-ts";
+import { ContractStat, Transaction } from "../generated/schema";
+import {
+  ADDRESS_ZERO,
+  CONTRACT_ADDRESS,
+  ONE_BI,
+  ZERO_BI,
+  ZERO_BD,
+  BI_18,
+} from "./constants";
 
-export const ADDRESS_ZERO = "0x0000000000000000000000000000000000000000";
-export const FACTORY_ADDRESS = "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f";
+export function loadTransaction(event: ethereum.Event): Transaction {
+  let transaction = Transaction.load(event.transaction.hash.toHexString());
+  if (transaction === null) {
+    transaction = new Transaction(event.transaction.hash.toHexString());
+  }
+  transaction.blockNumber = event.block.number;
+  transaction.timestamp = event.block.timestamp;
+  transaction.gasLimit = event.transaction.gasLimit;
+  transaction.gasPrice = event.transaction.gasPrice;
+  transaction.from = event.transaction.from;
+  transaction.to = event.transaction.to;
+  transaction.save();
+  return transaction as Transaction;
+}
 
-export let ZERO_BI = BigInt.fromI32(0);
-export let ONE_BI = BigInt.fromI32(1);
-export let ZERO_BD = BigDecimal.fromString("0");
-export let ONE_BD = BigDecimal.fromString("1");
-export let BI_18 = BigInt.fromI32(18);
+export function handlePoolCreated(): void {
+  // load factory
+  let stat = ContractStat.load(CONTRACT_ADDRESS);
+  if (stat === null) {
+    stat = new ContractStat(CONTRACT_ADDRESS);
+    stat.poolCnt = ZERO_BI;
+    stat.txCnt = ZERO_BI;
+    stat.modifyPositionCnt = ZERO_BI;
+    stat.swapCnt = ZERO_BI;
+    stat.totalLiquidity = ZERO_BI;
+    stat.owner = ADDRESS_ZERO;
+  }
 
-// rebass tokens, dont count in tracked volume
-export let UNTRACKED_PAIRS: string[] = [
-  "0x9ea3b5b4ec044b70375236a281986106457b20ef",
-];
+  stat.poolCnt = stat.poolCnt.plus(ONE_BI);
+  stat.save();
+}
+
+export function loadContractStat(): ContractStat {
+  let stat = ContractStat.load(CONTRACT_ADDRESS);
+  if (stat === null) {
+    throw "contract is not deployed";
+  }
+  return stat;
+}
+
+let Q192 = BigInt.fromI32(2).pow(192);
 
 export function exponentToBigDecimal(decimals: BigInt): BigDecimal {
   let bd = BigDecimal.fromString("1");
@@ -29,42 +66,25 @@ export function exponentToBigDecimal(decimals: BigInt): BigDecimal {
   return bd;
 }
 
-export function bigDecimalExp18(): BigDecimal {
-  return BigDecimal.fromString("1000000000000000000");
-}
-
-export function convertEthToDecimal(eth: BigInt): BigDecimal {
-  return eth.toBigDecimal().div(exponentToBigDecimal(new BigInt(18)));
-}
-
-export function convertTokenToDecimal(
-  tokenAmount: BigInt,
-  exchangeDecimals: BigInt
-): BigDecimal {
-  if (exchangeDecimals == ZERO_BI) {
-    return tokenAmount.toBigDecimal();
+// return 0 if denominator is 0 in division
+export function safeDiv(amount0: BigDecimal, amount1: BigDecimal): BigDecimal {
+  if (amount1.equals(ZERO_BD)) {
+    return ZERO_BD;
+  } else {
+    return amount0.div(amount1);
   }
-  return tokenAmount.toBigDecimal().div(exponentToBigDecimal(exchangeDecimals));
 }
 
-export function equalToZero(value: BigDecimal): boolean {
-  const formattedVal = parseFloat(value.toString());
-  const zero = parseFloat(ZERO_BD.toString());
-  if (zero == formattedVal) {
-    return true;
-  }
-  return false;
-}
+export function sqrtPriceX96ToTokenPrices(sqrtPriceX96: BigInt): BigDecimal[] {
+  let num = sqrtPriceX96.times(sqrtPriceX96).toBigDecimal();
+  let denom = BigDecimal.fromString(Q192.toString());
+  // log.critical("num: {}, denom: {}", [num.toString(), denom.toString()]);
+  // log.critical("{}", [exponentToBigDecimal(BI_18).toString()]);
+  let price1 = num
+    .div(denom)
+    .times(exponentToBigDecimal(BI_18))
+    .div(exponentToBigDecimal(BI_18));
 
-export function isNullEthValue(value: string): boolean {
-  return (
-    value ==
-    "0x0000000000000000000000000000000000000000000000000000000000000001"
-  );
+  let price0 = safeDiv(BigDecimal.fromString("1"), price1);
+  return [price0, price1];
 }
-
-// HOT FIX: we cant implement try catch for overflow catching so skip total supply parsing on these tokens that overflow
-// TODO: find better way to handle overflow
-let SKIP_TOTAL_SUPPLY: string[] = [
-  "0x0000000000bf2686748e1c0255036e7617e7e8a5",
-];

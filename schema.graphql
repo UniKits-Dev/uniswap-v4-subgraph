@@ -1,7 +1,17 @@
-type PoolSnapshot @entity {
+type ContractStat @entity {
+  # contract address
   id: ID!
-  liquidity: BigInt!
-  sqrtPriceX96: BigInt!
+  # amount of pools created
+  poolCnt: BigInt!
+  # amoutn of transactions all time
+  txCnt: BigInt!
+  modifyPositionCnt: BigInt!
+  swapCnt: BigInt!
+  # total liquidity
+  totalLiquidity: BigInt!
+
+  # current owner of the factory
+  owner: ID!
 }
 
 type Pool @entity {
@@ -13,39 +23,98 @@ type Pool @entity {
   fee: Int!
   tickSpacing: Int!
   hookAddress: Bytes!
+  txCnt: BigInt!
+  liquidity: BigInt!
+  sqrtPrice: BigInt!
+  # derived from sqrtPriceX96
+  token0Price: BigDecimal!
+  token1Price: BigDecimal!
+  # current tick
+  tick: BigInt!
 }
 
 type Swap @entity {
   # transaction hash + "-" + index in swaps Transaction array
   id: ID!
   poolKey: Bytes!
-  transaction: Bytes!
-  timestamp: BigInt! # need this to pull recent txns for specific token or pair
   currency0: Bytes!
   currency1: Bytes!
+  transaction: Transaction!
 
   # populated from the Swap event
   sender: Bytes!
-  from: Bytes!
   liquidity: BigInt!
   sqrtPriceX96: BigInt!
   amount0Delta: BigInt!
   amount1Delta: BigInt!
+  tick: BigInt!
   logIndex: BigInt
+  # derived from sqrtPriceX96
+  token0Price: BigDecimal!
+  token1Price: BigDecimal!
 }
 
 type Position @entity {
   id: ID!
   poolKey: Bytes!
-  transaction: Bytes!
-  timestamp: BigInt! # need this to pull recent txns for specific token or pair
   currency0: Bytes!
   currency1: Bytes!
+  transaction: Transaction!
 
   # populated from the ModifyPosition event
   sender: Bytes!
-  from: Bytes!
   liquidity: BigInt!
   sqrtPriceX96: BigInt!
+  tick: BigInt!
   logIndex: BigInt
+  # derived from sqrtPriceX96
+  token0Price: BigDecimal!
+  token1Price: BigDecimal!
+}
+
+type Transaction @entity {
+  # txn hash
+  id: ID!
+  # block txn was included in
+  blockNumber: BigInt!
+  # timestamp txn was confirmed
+  timestamp: BigInt!
+  # gas used during txn execution
+  gasLimit: BigInt!
+  gasPrice: BigInt!
+  from: Bytes!
+  to: Bytes
+  # derived values
+  position: [Position]! @derivedFrom(field: "transaction")
+  swap: [Swap]! @derivedFrom(field: "transaction")
+}
+
+# hourly stats tracker for pool
+type PoolHourData @entity {
+  # format: <pool address>-<timestamp>
+  id: ID!
+  # unix timestamp for start of hour
+  periodStartUnix: Int!
+  # pointer to pool
+  pool: Pool!
+  # in range liquidity at end of period
+  liquidity: BigInt!
+  # current price tracker at end of period
+  sqrtPrice: BigInt!
+  # price of token0 - derived from sqrtPrice
+  token0Price: BigDecimal!
+  # price of token1 - derived from sqrtPrice
+  token1Price: BigDecimal!
+  # current tick at end of period
+  tick: BigInt
+  # numebr of transactions during period
+  txCount: BigInt!
+  # opening price of token0
+  open: BigDecimal!
+  # high price of token0
+  high: BigDecimal!
+  # low price of token0
+  low: BigDecimal!
+  # close price of token0
+  close: BigDecimal!
 }
