@@ -4,12 +4,19 @@ import {
   Swap as SwapEvent,
 } from "../generated/PoolManager/PoolManager";
 import { ContractStat, Pool, Position, Swap } from "../generated/schema";
-import { Bytes } from "@graphprotocol/graph-ts";
-import { ADDRESS_ZERO, CONTRACT_ADDRESS, ONE_BI, ZERO_BI } from "./constants";
+import { Bytes, BigDecimal } from "@graphprotocol/graph-ts";
+import {
+  ADDRESS_ZERO,
+  CONTRACT_ADDRESS,
+  ONE_BI,
+  ZERO_BD,
+  ZERO_BI,
+} from "./constants";
 import {
   handlePoolCreated,
   loadContractStat,
   loadTransaction,
+  sqrtPriceX96ToTokenPrices,
 } from "./helpers";
 
 export function handleInitialize(event: Initialize): void {
@@ -24,6 +31,8 @@ export function handleInitialize(event: Initialize): void {
   pool.txCnt = ZERO_BI;
   pool.liquidity = ZERO_BI;
   pool.sqrtPriceX96 = ZERO_BI;
+  pool.token0Price = ZERO_BD;
+  pool.token1Price = ZERO_BD;
   pool.save();
 }
 
@@ -51,7 +60,16 @@ export function handleModifyPosition(event: ModifyPosition): void {
 
   position.liquidity = event.params.liquidityDelta.plus(pool.liquidity);
   position.sqrtPriceX96 = pool.sqrtPriceX96;
+  let prices: BigDecimal[];
+  if (pool.sqrtPriceX96.gt(ZERO_BI)) {
+    prices = sqrtPriceX96ToTokenPrices(pool.sqrtPriceX96);
+  } else {
+    prices = [ZERO_BD, ZERO_BD];
+  }
+  position.token0Price = prices[0];
+  position.token1Price = prices[1];
   position.save();
+
   pool.liquidity = position.liquidity;
   pool.save();
 }
@@ -80,9 +98,15 @@ export function handleSwap(event: SwapEvent): void {
   swap.amount0Delta = event.params.amount0;
   swap.amount1Delta = event.params.amount1;
   swap.logIndex = event.logIndex;
+
+  let prices = sqrtPriceX96ToTokenPrices(swap.sqrtPriceX96);
+  swap.token0Price = prices[0];
+  swap.token1Price = prices[1];
   swap.save();
 
   pool.liquidity = swap.liquidity;
   pool.sqrtPriceX96 = swap.sqrtPriceX96;
+  pool.token0Price = swap.token0Price;
+  pool.token1Price = swap.token1Price;
   pool.save();
 }
